@@ -12,6 +12,10 @@ import java.util.List;
 @Service
 public class ParkingPredictionService {
 
+    private static final int OCCUPANCY_WEEKDAY_PEAK = 85;
+    private static final int OCCUPANCY_WEEKDAY_REGULAR = 65;
+    private static final int OCCUPANCY_WEEKEND = 50;
+
     private final ParkingReportRepository parkingReportRepository;
 
     public ParkingPredictionService(ParkingReportRepository parkingReportRepository) {
@@ -28,19 +32,19 @@ public class ParkingPredictionService {
                 now
         );
 
-        int averageOccupancy = history.stream()
+        List<ParkingReport> matchingReports = history.stream()
                 .filter(report -> report.getReportTime().getDayOfWeek().getValue() == dayOfWeek)
                 .filter(report -> report.getReportTime().getHour() == hour)
+                .toList();
+
+        double averageOccupancy = matchingReports.stream()
                 .mapToInt(ParkingReport::getOccupancyPercent)
                 .average()
-                .stream()
-                .mapToInt(value -> (int) Math.round(value))
-                .findFirst()
-                .orElseGet(() -> heuristicOccupancy(dayOfWeek, hour));
+                .orElse(heuristicOccupancy(dayOfWeek, hour));
 
-        int estimatedAvailability = Math.max(0, 100 - averageOccupancy);
+        int estimatedAvailability = Math.max(0, 100 - (int) Math.round(averageOccupancy));
         return new PredictionResponse(zoneId, dayOfWeek, hour, estimatedAvailability,
-                history.isEmpty() ? "heuristic" : "historical+heuristic");
+                matchingReports.isEmpty() ? "heuristic" : "historical+heuristic");
     }
 
     private void validateInput(int dayOfWeek, int hour) {
@@ -57,11 +61,11 @@ public class ParkingPredictionService {
         boolean weekday = dayOfWeek >= 1 && dayOfWeek <= 5;
 
         if (weekday && peakHour) {
-            return 85;
+            return OCCUPANCY_WEEKDAY_PEAK;
         }
         if (weekday) {
-            return 65;
+            return OCCUPANCY_WEEKDAY_REGULAR;
         }
-        return 50;
+        return OCCUPANCY_WEEKEND;
     }
 }
