@@ -21,6 +21,7 @@ Variables opcionales:
 - `DB_URL` (default: `jdbc:mysql://localhost:3306/parkai`)
 - `DB_USERNAME` (default: `parkai`)
 - `DB_PASSWORD` (default: `parkai`)
+- `PARKING_ML_SERVICE_URL` (opcional, endpoint HTTP del modelo Python/Scikit-learn)
 
 ## Endpoints principales
 - `GET /api/zones`
