@@ -8,6 +8,9 @@ import com.parkai.backend.repository.ParkingReportRepository;
 import com.parkai.backend.repository.UserRepository;
 import com.parkai.backend.repository.ZoneRepository;
 import jakarta.validation.Valid;
+
+import java.time.LocalDateTime;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -44,7 +47,7 @@ public class ParkingReportController {
         ParkingReport report = new ParkingReport();
         report.setZone(zone);
         report.setUser(user);
-        report.setReportTime(request.reportTime());
+        report.setReportTime(LocalDateTime.now());
         report.setOccupancyPercent(request.occupancyPercent());
         return parkingReportRepository.save(report);
     }
