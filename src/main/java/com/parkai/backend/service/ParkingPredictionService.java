@@ -12,6 +12,7 @@ import org.springframework.web.client.RestClient;
 import java.time.DayOfWeek;
 import java.time.LocalDateTime;
 import java.util.List;
+import com.parkai.backend.dto.NearbyPredictionResponse;
 
 @Service
 public class ParkingPredictionService {
@@ -166,4 +167,45 @@ public class ParkingPredictionService {
 
     private record PythonPredictionResponse(int estimatedAvailabilityPercent) {
     }
+
+    public List<NearbyPredictionResponse> getNearbyPredictions(
+        double latitude,
+        double longitude,
+        int dayOfWeek,
+        int hour
+) {
+
+    double radius = 0.01;
+
+    List<ParkingReport> nearbyReports =
+            parkingReportRepository
+                    .findByLatitudeBetweenAndLongitudeBetween(
+                            latitude - radius,
+                            latitude + radius,
+                            longitude - radius,
+                            longitude + radius
+                    );
+
+    return nearbyReports.stream()
+            .map(report -> {
+
+                PredictionResponse prediction =
+                        estimateAvailability(
+                                report.getLatitude(),
+                                report.getLongitude(),
+                                dayOfWeek,
+                                hour
+                        );
+
+                return new NearbyPredictionResponse(
+                        report.getStreetName(),
+                        report.getLatitude(),
+                        report.getLongitude(),
+                        prediction.estimatedAvailabilityPercent(),
+                        prediction.level()
+                );
+            })
+            .distinct()
+            .toList();
+}
 }
