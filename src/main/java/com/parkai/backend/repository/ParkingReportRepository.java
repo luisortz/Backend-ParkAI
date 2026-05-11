@@ -7,5 +7,20 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public interface ParkingReportRepository extends JpaRepository<ParkingReport, Long> {
-    List<ParkingReport> findByZoneIdAndReportTimeBetween(Long zoneId, LocalDateTime start, LocalDateTime end);
+
+    List<ParkingReport> findByLatitudeBetweenAndLongitudeBetweenAndReportTimeBetween(
+            double minLat,
+            double maxLat,
+            double minLng,
+            double maxLng,
+            LocalDateTime start,
+            LocalDateTime end
+    );
+
+    List<ParkingReport> findByLatitudeBetweenAndLongitudeBetween(
+        double minLat,
+        double maxLat,
+        double minLng,
+        double maxLng
+);
 }

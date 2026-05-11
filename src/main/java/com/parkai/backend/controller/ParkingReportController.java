@@ -35,9 +35,6 @@ public class ParkingReportController {
 
     @PostMapping
     public ParkingReport create(@RequestBody @Valid CreateParkingReportRequest request) {
-        Zone zone = zoneRepository.findById(request.zoneId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Zone not found"));
-
         User user = null;
         if (request.userId() != null) {
             user = userRepository.findById(request.userId())
@@ -45,10 +42,12 @@ public class ParkingReportController {
         }
 
         ParkingReport report = new ParkingReport();
-        report.setZone(zone);
         report.setUser(user);
         report.setReportTime(LocalDateTime.now());
         report.setOccupancyPercent(request.occupancyPercent());
+        report.setLatitude(request.latitude());
+        report.setLongitude(request.longitude());
+        report.setStreetName(request.streetName());
         return parkingReportRepository.save(report);
     }
 }

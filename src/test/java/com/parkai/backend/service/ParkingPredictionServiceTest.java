@@ -14,20 +14,33 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.anyDouble;
 
 class ParkingPredictionServiceTest {
 
     @Test
-    void returnsHeuristicPredictionWhenThereIsNoHistory() {
-        ParkingReportRepository repository = mock(ParkingReportRepository.class);
-        when(repository.findByZoneIdAndReportTimeBetween(eq(1L), any(), any())).thenReturn(Collections.emptyList());
+void returnsHeuristicPredictionWhenThereIsNoHistory() {
 
-        ParkingPredictionService service = new ParkingPredictionService(repository);
-        PredictionResponse response = service.estimateAvailability(1L, 1, 9);
+    ParkingReportRepository repository = mock(ParkingReportRepository.class);
 
-        assertEquals(15, response.estimatedAvailabilityPercent());
-        assertEquals("heuristic", response.source());
-    }
+    when(repository.findByLatitudeBetweenAndLongitudeBetweenAndReportTimeBetween(
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any()
+    )).thenReturn(Collections.emptyList());
+
+    ParkingPredictionService service = new ParkingPredictionService(repository);
+
+    PredictionResponse response =
+            service.estimateAvailability(-34.58, -58.42, 1, 9);
+
+    assertEquals(15, response.estimatedAvailabilityPercent());
+
+    assertEquals("heuristic", response.source());
+}
 
     @Test
     void returnsHeuristicWhenHistoryExistsButNoMatchingSlot() {
@@ -37,13 +50,23 @@ class ParkingPredictionServiceTest {
         nonMatching.setReportTime(LocalDateTime.of(2026, 5, 9, 20, 0));
         nonMatching.setOccupancyPercent(90);
 
-        when(repository.findByZoneIdAndReportTimeBetween(eq(1L), any(), any())).thenReturn(List.of(nonMatching));
+        when(repository.findByLatitudeBetweenAndLongitudeBetweenAndReportTimeBetween(
+        any(),
+        any(),
+        any(),
+        any(),
+        any(),
+        any()
+)).thenReturn(List.of(nonMatching));
 
-        ParkingPredictionService service = new ParkingPredictionService(repository);
-        PredictionResponse response = service.estimateAvailability(1L, 1, 9);
+ParkingPredictionService service = new ParkingPredictionService(repository);
 
-        assertEquals(15, response.estimatedAvailabilityPercent());
-        assertEquals("heuristic", response.source());
+PredictionResponse response =
+        service.estimateAvailability(-34.58, -58.42, 1, 9);
+
+assertEquals(15, response.estimatedAvailabilityPercent());
+
+assertEquals("heuristic", response.source());
     }
 
     @Test
@@ -53,7 +76,7 @@ class ParkingPredictionServiceTest {
 
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
-                () -> service.estimateAvailability(1L, 0, 10)
+                () -> service.estimateAvailability(-34.58, -58.42, 0, 10)
         );
 
         assertTrue(exception.getMessage().contains("dayOfWeek"));

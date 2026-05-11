@@ -2,11 +2,22 @@ package com.parkai.backend.dto;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotBlank;
 
 public record CreateParkingReportRequest(
-        @NotNull Long zoneId,
+
+        double latitude,
+
+        double longitude,
+
+        @NotBlank
+        String streetName,
+
         Long userId,
-        @Min(0) @Max(100) int occupancyPercent
+
+        @Min(0)
+        @Max(100)
+        int occupancyPercent
+
 ) {
 }

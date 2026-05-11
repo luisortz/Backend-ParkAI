@@ -22,6 +22,22 @@ public class ZoneController {
         return zoneRepository.findAll();
     }
 
+    @GetMapping("/nearby")
+public List<Zone> nearby(
+        @RequestParam double lat,
+        @RequestParam double lng
+) {
+
+    double radius = 0.01;
+
+    return zoneRepository.findByLatitudeBetweenAndLongitudeBetween(
+            lat - radius,
+            lat + radius,
+            lng - radius,
+            lng + radius
+    );
+}
+
     @PostMapping
     public Zone create(@RequestBody @Valid Zone zone) {
         return zoneRepository.save(zone);

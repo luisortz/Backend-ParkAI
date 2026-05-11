@@ -14,9 +14,14 @@ public class ParkingReport {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(optional = false)
-    @JoinColumn(name = "zone_id", nullable = false)
-    private Zone zone;
+    @Column
+    private double latitude;
+
+    @Column
+    private double longitude;
+
+    @Column
+    private String streetName;
 
     @ManyToOne
     @JoinColumn(name = "user_id")
@@ -38,13 +43,30 @@ public class ParkingReport {
         this.id = id;
     }
 
-    public Zone getZone() {
-        return zone;
+    public double getLatitude() {
+        return latitude;
     }
 
-    public void setZone(Zone zone) {
-        this.zone = zone;
+    public void setLatitude(double latitude) {
+        this.latitude = latitude;
     }
+
+    public double getLongitude() {
+        return longitude;
+    }
+
+    public void setLongitude(double longitude) {
+        this.longitude = longitude;
+    }
+
+    public String getStreetName() {
+        return streetName;
+    }
+
+    public void setStreetName(String streetname) {
+        this.streetName = streetname;
+    }
+    
 
     public User getUser() {
         return user;

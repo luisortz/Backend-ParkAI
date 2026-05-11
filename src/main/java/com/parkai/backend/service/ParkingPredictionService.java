@@ -32,44 +32,72 @@ public class ParkingPredictionService {
         this.restClient = RestClient.create();
     }
 
-    public PredictionResponse estimateAvailability(Long zoneId, int dayOfWeek, int hour) {
-        validateInput(dayOfWeek, hour);
+    public PredictionResponse estimateAvailability(
+        double latitude,
+        double longitude,
+        int dayOfWeek,
+        int hour
+) {
 
-        PredictionResponse pythonPrediction = getPythonModelPrediction(zoneId, dayOfWeek, hour);
-        if (pythonPrediction != null) {
-            return pythonPrediction;
-        }
+    validateInput(dayOfWeek, hour);
 
-        LocalDateTime now = LocalDateTime.now();
-        List<ParkingReport> history = parkingReportRepository.findByZoneIdAndReportTimeBetween(
-                zoneId,
-                now.minusDays(30),
-                now
+    LocalDateTime now = LocalDateTime.now();
+
+    double radius = 0.01;
+
+    List<ParkingReport> history =
+            parkingReportRepository.findByLatitudeBetweenAndLongitudeBetweenAndReportTimeBetween(
+                    latitude - radius,
+                    latitude + radius,
+                    longitude - radius,
+                    longitude + radius,
+                    now.minusDays(30),
+                    now
+            );
+
+    List<ParkingReport> matchingReports = history.stream()
+            .filter(report -> report.getReportTime().getDayOfWeek().getValue() == dayOfWeek)
+            .filter(report -> report.getReportTime().getHour() == hour)
+            .toList();
+
+    double averageOccupancy = matchingReports.stream()
+            .mapToInt(ParkingReport::getOccupancyPercent)
+            .average()
+            .orElse(heuristicOccupancy(dayOfWeek, hour));
+
+    int estimatedAvailability =
+            Math.max(0, 100 - (int) Math.round(averageOccupancy));
+            String level = calculateLevel(estimatedAvailability);
+
+            return new PredictionResponse(
+                latitude,
+                longitude,
+                dayOfWeek,
+                hour,
+                estimatedAvailability,
+                level,
+                matchingReports.isEmpty()
+                        ? "heuristic"
+                        : "historical+heuristic"
         );
+}
 
-        List<ParkingReport> matchingReports = history.stream()
-                .filter(report -> report.getReportTime().getDayOfWeek().getValue() == dayOfWeek)
-                .filter(report -> report.getReportTime().getHour() == hour)
-                .toList();
-
-        double averageOccupancy = matchingReports.stream()
-                .mapToInt(ParkingReport::getOccupancyPercent)
-                .average()
-                .orElse(heuristicOccupancy(dayOfWeek, hour));
-
-        int estimatedAvailability = Math.max(0, 100 - (int) Math.round(averageOccupancy));
-        return new PredictionResponse(zoneId, dayOfWeek, hour, estimatedAvailability,
-                matchingReports.isEmpty() ? "heuristic" : "historical+heuristic");
-    }
-
-    private PredictionResponse getPythonModelPrediction(Long zoneId, int dayOfWeek, int hour) {
+    private PredictionResponse getPythonModelPrediction(double latitude,
+    double longitude,
+    int dayOfWeek,
+    int hour) {
         if (mlServiceUrl == null || mlServiceUrl.isBlank()) {
             return null;
         }
         try {
             PythonPredictionResponse response = restClient.post()
                     .uri(mlServiceUrl)
-                    .body(new PythonPredictionRequest(zoneId, dayOfWeek, hour))
+                    .body(new PythonPredictionRequest(
+        latitude,
+        longitude,
+        dayOfWeek,
+        hour
+))
                     .retrieve()
                     .body(PythonPredictionResponse.class);
 
@@ -77,7 +105,18 @@ public class ParkingPredictionService {
                 return null;
             }
 
-            return new PredictionResponse(zoneId, dayOfWeek, hour, response.estimatedAvailabilityPercent(), "python-sklearn-service");
+            String level =
+            calculateLevel(response.estimatedAvailabilityPercent());
+
+            return new PredictionResponse(
+        latitude,
+        longitude,
+        dayOfWeek,
+        hour,
+        response.estimatedAvailabilityPercent(),
+        level,
+        "python-sklearn-service"
+);
         } catch (RuntimeException ex) {
             LOGGER.warn("Python ML service prediction failed, fallback to heuristic/historical model", ex);
             return null;
@@ -106,7 +145,23 @@ public class ParkingPredictionService {
         return OCCUPANCY_WEEKEND;
     }
 
-    private record PythonPredictionRequest(Long zoneId, int dayOfWeek, int hour) {
+    private String calculateLevel(int availabilityPercent) {
+
+        if (availabilityPercent <= 30) {
+            return "LOW";
+        }
+    
+        if (availabilityPercent <= 60) {
+            return "MEDIUM";
+        }
+    
+        return "HIGH";
+    }
+
+    private record PythonPredictionRequest(double latitude,
+    double longitude,
+    int dayOfWeek,
+    int hour) {
     }
 
     private record PythonPredictionResponse(int estimatedAvailabilityPercent) {

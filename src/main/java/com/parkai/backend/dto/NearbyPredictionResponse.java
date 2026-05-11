@@ -1,20 +1,16 @@
 package com.parkai.backend.dto;
 
-public record PredictionResponse(
+public record NearbyPredictionResponse(
+
+        String streetName,
 
         double latitude,
 
         double longitude,
 
-        int dayOfWeek,
-
-        int hour,
-
         int estimatedAvailabilityPercent,
 
-        String level,
-
-        String source
+        String level
 
 ) {
 }

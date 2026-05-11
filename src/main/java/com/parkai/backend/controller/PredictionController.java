@@ -18,11 +18,23 @@ public class PredictionController {
     }
 
     @GetMapping
-    public PredictionResponse predict(
-            @RequestParam Long zoneId,
-            @RequestParam int dayOfWeek,
-            @RequestParam int hour
-    ) {
-        return parkingPredictionService.estimateAvailability(zoneId, dayOfWeek, hour);
-    }
+public PredictionResponse predict(
+
+        @RequestParam double latitude,
+
+        @RequestParam double longitude,
+
+        @RequestParam int dayOfWeek,
+
+        @RequestParam int hour
+
+) {
+
+    return parkingPredictionService.estimateAvailability(
+            latitude,
+            longitude,
+            dayOfWeek,
+            hour
+    );
+}
 }

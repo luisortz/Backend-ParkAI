@@ -19,18 +19,18 @@ public class DataLoader implements CommandLineRunner {
 
         if (zoneRepository.count() == 0) {
 
-            Zone palermo = new Zone();
-            palermo.setName("Palermo");
-            palermo.setLatitude(-34.5883);
-            palermo.setLongitude(-58.4300);
+            Zone AltoPalermo = new Zone();
+            AltoPalermo.setName("Alto Palermo");
+            AltoPalermo.setLatitude(-34.5884018);
+            AltoPalermo.setLongitude(-58.4133122);
 
-            Zone recoleta = new Zone();
-            recoleta.setName("Recoleta");
-            recoleta.setLatitude(-34.5875);
-            recoleta.setLongitude(-58.3974);
+            Zone SantafeYArmenia = new Zone();
+            SantafeYArmenia.setName("Santa fe y Armenia");
+            SantafeYArmenia.setLatitude(-34.5835748);
+            SantafeYArmenia.setLongitude(-58.4208238);
 
-            zoneRepository.save(palermo);
-            zoneRepository.save(recoleta);
+            zoneRepository.save(AltoPalermo);
+            zoneRepository.save(SantafeYArmenia);
 
             System.out.println("Zones loaded successfully");
         }
