@@ -189,21 +189,19 @@ public class ParkingPredictionService {
     return nearbyReports.stream()
             .map(report -> {
 
-                PredictionResponse prediction =
-                        estimateAvailability(
-                                report.getLatitude(),
-                                report.getLongitude(),
-                                dayOfWeek,
-                                hour
-                        );
+                int availability =
+                    100 - report.getOccupancyPercent();
 
-                return new NearbyPredictionResponse(
-                        report.getStreetName(),
-                        report.getLatitude(),
-                        report.getLongitude(),
-                        prediction.estimatedAvailabilityPercent(),
-                        prediction.level()
-                );
+                String level =
+                    calculateLevel(availability);
+
+    return new NearbyPredictionResponse(
+            report.getStreetName(),
+            report.getLatitude(),
+            report.getLongitude(),
+            availability,
+            level
+    );
             })
             .distinct()
             .toList();
