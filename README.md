@@ -1,6 +1,7 @@
 # Backend-ParkAI
 
 Backend del prototipo ParkAI desarrollado con **Java + Spring Boot**.
+proyecto para tesis creado por Luis Ortiz/Valentino Gil
 
 ## Objetivo del backend
 Este backend expone APIs para:
