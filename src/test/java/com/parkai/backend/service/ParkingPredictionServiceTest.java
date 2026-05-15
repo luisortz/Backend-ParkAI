@@ -15,6 +15,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.mockito.ArgumentMatchers.anyDouble;
+import com.parkai.backend.service.MapService;
 
 class ParkingPredictionServiceTest {
 
@@ -32,7 +33,7 @@ void returnsHeuristicPredictionWhenThereIsNoHistory() {
             any()
     )).thenReturn(Collections.emptyList());
 
-    ParkingPredictionService service = new ParkingPredictionService(repository);
+    ParkingPredictionService service = new ParkingPredictionService(repository,mock(MapService.class));
 
     PredictionResponse response =
             service.estimateAvailability(-34.58, -58.42, 1, 9);
@@ -59,7 +60,7 @@ void returnsHeuristicPredictionWhenThereIsNoHistory() {
         any()
 )).thenReturn(List.of(nonMatching));
 
-ParkingPredictionService service = new ParkingPredictionService(repository);
+ParkingPredictionService service = new ParkingPredictionService(repository,mock(MapService.class));
 
 PredictionResponse response =
         service.estimateAvailability(-34.58, -58.42, 1, 9);
@@ -72,7 +73,7 @@ assertEquals("heuristic", response.source());
     @Test
     void validatesDayRange() {
         ParkingReportRepository repository = mock(ParkingReportRepository.class);
-        ParkingPredictionService service = new ParkingPredictionService(repository);
+        ParkingPredictionService service = new ParkingPredictionService(repository,mock(MapService.class));
 
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,

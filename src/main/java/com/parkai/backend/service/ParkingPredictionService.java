@@ -12,6 +12,8 @@ import org.springframework.web.client.RestClient;
 import java.time.DayOfWeek;
 import java.time.LocalDateTime;
 import java.util.List;
+import com.parkai.backend.dto.NearbyPredictionResponse;
+import com.parkai.backend.dto.NearbyStreet;
 
 @Service
 public class ParkingPredictionService {
@@ -23,13 +25,15 @@ public class ParkingPredictionService {
 
     private final ParkingReportRepository parkingReportRepository;
     private final RestClient restClient;
+    private final MapService mapService;
 
     @Value("${parking.ml.service.url:}")
     private String mlServiceUrl;
 
-    public ParkingPredictionService(ParkingReportRepository parkingReportRepository) {
+    public ParkingPredictionService(ParkingReportRepository parkingReportRepository,MapService mapService) {
         this.parkingReportRepository = parkingReportRepository;
         this.restClient = RestClient.create();
+        this.mapService = mapService;
     }
 
     public PredictionResponse estimateAvailability(
@@ -166,4 +170,40 @@ public class ParkingPredictionService {
 
     private record PythonPredictionResponse(int estimatedAvailabilityPercent) {
     }
+
+    public List<NearbyPredictionResponse> getNearbyPredictions(
+        double latitude,
+        double longitude,
+        int dayOfWeek,
+        int hour
+) {
+
+    List<NearbyStreet> streets =
+            mapService.getNearbyStreets(
+                    latitude,
+                    longitude
+            );
+
+    return streets.stream()
+            .map(street -> {
+
+                PredictionResponse prediction =
+                        estimateAvailability(
+                                street.latitude(),
+                                street.longitude(),
+                                dayOfWeek,
+                                hour
+                        );
+
+                return new NearbyPredictionResponse(
+                        street.streetName(),
+                        street.latitude(),
+                        street.longitude(),
+                        prediction.estimatedAvailabilityPercent(),
+                        prediction.level()
+                );
+            })
+            .distinct()
+            .toList();
+}
 }
