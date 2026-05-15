@@ -22,7 +22,7 @@ public class MapService {
             double longitude
     ) {
 
-        double radius = 500;
+        double radius = 1000;
 
         String query = """
                 [out:json];
