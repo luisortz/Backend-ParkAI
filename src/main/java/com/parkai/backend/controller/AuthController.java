@@ -1,7 +1,9 @@
 package com.parkai.backend.controller;
 
+import com.parkai.backend.dto.AuthResponse;
 import com.parkai.backend.dto.RegisterRequest;
 import com.parkai.backend.dto.UserResponse;
+import com.parkai.backend.dto.VerifyRequest;
 import com.parkai.backend.model.User;
 import com.parkai.backend.repository.UserRepository;
 import com.parkai.backend.service.AuthService;
@@ -26,4 +28,11 @@ public class AuthController {
     ) {
         return authService.register(request);
     }
+
+    @PostMapping("/verify")
+    public AuthResponse verify(
+        @RequestBody VerifyRequest request
+) {
+    return authService.verify(request);
+}
 }
