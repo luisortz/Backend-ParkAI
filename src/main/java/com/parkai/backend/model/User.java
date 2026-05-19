@@ -33,6 +33,8 @@ public class User {
 
     private LocalDateTime verificationCodeExpiresAt;
 
+    private LocalDateTime lastVerificationCodeSentAt;
+
     public Long getId() {
         return id;
     }
@@ -65,7 +67,7 @@ public class User {
         this.password=password;
     }
 
-    public boolean getEnabled() {
+    public boolean isEnabled() {
         return enabled;
     }
 
@@ -87,6 +89,15 @@ public class User {
 
     public void setVerificationCodeExpiresAt(LocalDateTime verificationCodeExpiresAt) {
         this.verificationCodeExpiresAt=verificationCodeExpiresAt;
+    }
+
+    public LocalDateTime getLastVerificationCodeSentAt() {
+        return lastVerificationCodeSentAt;
+    }
+    
+    public void setLastVerificationCodeSentAt(LocalDateTime lastVerificationCodeSentAt) {
+        this.lastVerificationCodeSentAt =
+                lastVerificationCodeSentAt;
     }
 
 

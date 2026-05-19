@@ -2,8 +2,10 @@ package com.parkai.backend.service;
 
 import com.parkai.backend.dto.AuthResponse;
 import com.parkai.backend.dto.RegisterRequest;
+import com.parkai.backend.dto.ResendCodeRequest;
 import com.parkai.backend.dto.UserResponse;
 import com.parkai.backend.dto.VerifyRequest;
+import com.parkai.backend.exception.TooManyRequestsException;
 import com.parkai.backend.model.User;
 import com.parkai.backend.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -52,6 +54,8 @@ public class AuthService {
         user.setVerificationCodeExpiresAt(
                 LocalDateTime.now().plusMinutes(5)
         );
+        user.setLastVerificationCodeSentAt(
+        LocalDateTime.now());
 
         user.setEnabled(false);
         User savedUser = userRepository.save(user);
@@ -102,4 +106,47 @@ public class AuthService {
         jwtService.generateToken(user.getId());
         return new AuthResponse(token);
     }
+
+    public void resendVerificationCode(
+        ResendCodeRequest request
+        ) {
+
+        User user = userRepository
+                .findByEmail(request.email())
+                .orElseThrow();
+
+        if (user.isEnabled()) {
+                throw new RuntimeException(
+                        "User already verified"
+                );
+        }
+
+        if (user.getLastVerificationCodeSentAt() != null&& user.getLastVerificationCodeSentAt().plusSeconds(60).isAfter(LocalDateTime.now())){
+                throw new TooManyRequestsException(
+                        "Wait 60 seconds before requesting another code"
+                );
+                }
+
+        String code = String.format(
+                "%06d",
+                new Random().nextInt(999999)
+        );
+
+        user.setVerificationCode(code);
+
+        user.setVerificationCodeExpiresAt(
+                LocalDateTime.now().plusMinutes(5)
+        );
+
+        user.setLastVerificationCodeSentAt(
+        LocalDateTime.now()
+        );
+
+        userRepository.save(user);
+
+        mailService.sendVerificationCode(
+                user.getEmail(),
+                code
+        );
+}       
 }
