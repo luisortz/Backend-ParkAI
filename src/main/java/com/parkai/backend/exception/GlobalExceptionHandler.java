@@ -17,14 +17,33 @@ public class GlobalExceptionHandler {
     ) {
 
         ErrorResponse error = new ErrorResponse(
-        "TOO_MANY_REQUESTS",
-        ex.getMessage(),
-        HttpStatus.TOO_MANY_REQUESTS.value(),
-        LocalDateTime.now()
+                "TOO_MANY_REQUESTS",
+                ex.getMessage(),
+                HttpStatus.TOO_MANY_REQUESTS.value(),
+                LocalDateTime.now()
         );
 
         return ResponseEntity
                 .status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(error);
+    }
+
+    @ExceptionHandler(DuplicateFavoriteException.class)
+    public ResponseEntity<ErrorResponse>
+    handleDuplicateFavorite(
+            DuplicateFavoriteException ex
+    ) {
+
+        ErrorResponse error =
+                new ErrorResponse(
+                        "DUPLICATE_FAVORITE",
+                        ex.getMessage(),
+                        HttpStatus.CONFLICT.value(),
+                        LocalDateTime.now()
+                );
+
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
                 .body(error);
     }
 }

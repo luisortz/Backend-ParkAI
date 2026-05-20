@@ -2,6 +2,7 @@ package com.parkai.backend.controller;
 
 import com.parkai.backend.dto.FavoriteRequest;
 import com.parkai.backend.dto.FavoriteResponse;
+import com.parkai.backend.model.Favorite;
 import com.parkai.backend.security.AuthenticatedUserProvider;
 import com.parkai.backend.service.FavoriteService;
 import jakarta.validation.Valid;
@@ -49,7 +50,7 @@ public class FavoriteController {
     }
 
     @GetMapping
-    public List<FavoriteResponse> getFavorites(
+    public List<Favorite> getFavorites(
 
             @RequestHeader("Authorization")
             String authorizationHeader
@@ -62,13 +63,27 @@ public class FavoriteController {
                         );
 
         return favoriteService
-                .getUserFavorites(userId);
+                .getFavorites(userId);
     }
 
     @DeleteMapping("/{id}")
-    public void delete(
-            @PathVariable Long id
+    public void deleteFavorite(
+
+            @PathVariable Long id,
+
+            @RequestHeader("Authorization")
+            String authorizationHeader
     ) {
-        favoriteService.delete(id);
+
+        Long userId =
+                authenticatedUserProvider
+                        .getUserId(
+                                authorizationHeader
+                        );
+
+        favoriteService.deleteFavorite(
+                id,
+                userId
+        );
     }
 }
