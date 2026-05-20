@@ -27,4 +27,21 @@ public class JwtService {
                 .signWith(key)
                 .compact();
     }
+
+    public Long extractUserId(String token) {
+
+        String userId = Jwts.parserBuilder()
+
+                .setSigningKey(key)
+
+                .build()
+
+                .parseClaimsJws(token)
+
+                .getBody()
+
+                .getSubject();
+
+        return Long.parseLong(userId);
+    }
 }
