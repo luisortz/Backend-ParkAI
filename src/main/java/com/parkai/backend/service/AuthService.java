@@ -1,5 +1,6 @@
 package com.parkai.backend.service;
 
+import com.parkai.backend.dto.LoginRequest;
 import com.parkai.backend.dto.AuthResponse;
 import com.parkai.backend.dto.RegisterRequest;
 import com.parkai.backend.dto.ResendCodeRequest;
@@ -149,4 +150,36 @@ public class AuthService {
                 code
         );
 }       
+
+        public AuthResponse login(LoginRequest request) {
+
+    User user = userRepository
+            .findByEmail(request.email())
+            .orElseThrow(() ->
+                    new RuntimeException("User not found"));
+
+    if (!passwordEncoder.matches(
+            request.password(),
+            user.getPassword()
+    )) {
+
+        throw new RuntimeException(
+                "Invalid password"
+        );
+    }
+
+    if (!user.isEnabled()) {
+
+        throw new RuntimeException(
+                "User not verified"
+        );
+    }
+
+    String token =
+            jwtService.generateToken(user.getId());
+
+    return new AuthResponse(token);
+}
+
+
 }
