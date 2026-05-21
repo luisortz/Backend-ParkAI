@@ -26,14 +26,16 @@ public class ParkingPredictionService {
     private final ParkingReportRepository parkingReportRepository;
     private final RestClient restClient;
     private final MapService mapService;
+    private final SearchHistoryService searchHistoryService;
 
     @Value("${parking.ml.service.url:}")
     private String mlServiceUrl;
 
-    public ParkingPredictionService(ParkingReportRepository parkingReportRepository,MapService mapService) {
+    public ParkingPredictionService(ParkingReportRepository parkingReportRepository,MapService mapService, SearchHistoryService searchHistoryService) {
         this.parkingReportRepository = parkingReportRepository;
         this.restClient = RestClient.create();
         this.mapService = mapService;
+        this.searchHistoryService = searchHistoryService;
     }
 
     public PredictionResponse estimateAvailability(
@@ -171,12 +173,31 @@ public class ParkingPredictionService {
     private record PythonPredictionResponse(int estimatedAvailabilityPercent) {
     }
 
-    public List<NearbyPredictionResponse> getNearbyPredictions(
+    public List<NearbyPredictionResponse>
+getNearbyPredictions(
+
+        Long userId,
+
+        String placeName,
+
         double latitude,
+
         double longitude,
+
         int dayOfWeek,
+
         int hour
 ) {
+
+    if (userId != null) {
+
+        searchHistoryService.saveSearch(
+                userId,
+                placeName,
+                latitude,
+                longitude
+        );
+    }
 
     List<NearbyStreet> streets =
             mapService.getNearbyStreets(
