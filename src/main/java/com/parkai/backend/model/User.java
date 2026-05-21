@@ -1,5 +1,7 @@
 package com.parkai.backend.model;
 
+import java.time.LocalDateTime;
+
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -20,6 +22,18 @@ public class User {
     @NotBlank
     @Column(nullable = false, unique = true)
     private String email;
+
+    @Column(nullable = false)
+    private String password;
+
+    @Column(nullable = false)
+    private boolean enabled = false;
+
+    private String verificationCode;
+
+    private LocalDateTime verificationCodeExpiresAt;
+
+    private LocalDateTime lastVerificationCodeSentAt;
 
     public Long getId() {
         return id;
@@ -44,4 +58,47 @@ public class User {
     public void setEmail(String email) {
         this.email = email;
     }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password=password;
+    }
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled=enabled;
+    }
+
+    public String getVerificationCode() {
+        return verificationCode;
+    }
+
+    public void setVerificationCode(String verificationCode) {
+        this.verificationCode=verificationCode;
+    }
+
+    public LocalDateTime getVerificationCodeExpiresAt() {
+        return verificationCodeExpiresAt;
+    }
+
+    public void setVerificationCodeExpiresAt(LocalDateTime verificationCodeExpiresAt) {
+        this.verificationCodeExpiresAt=verificationCodeExpiresAt;
+    }
+
+    public LocalDateTime getLastVerificationCodeSentAt() {
+        return lastVerificationCodeSentAt;
+    }
+    
+    public void setLastVerificationCodeSentAt(LocalDateTime lastVerificationCodeSentAt) {
+        this.lastVerificationCodeSentAt =
+                lastVerificationCodeSentAt;
+    }
+
+
 }
