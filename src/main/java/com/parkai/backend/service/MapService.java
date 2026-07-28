@@ -1,11 +1,15 @@
 package com.parkai.backend.service;
 
 import com.parkai.backend.dto.NearbyStreet;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 @Service
@@ -21,65 +25,76 @@ public class MapService {
             double latitude,
             double longitude
     ) {
-
         double radius = 1000;
 
-        String query = """
-                [out:json];
+        String query = String.format(
+                Locale.US,
+                """
+                [out:json][timeout:25];
                 way
-                  (around:%f,%f,%f)
-                  ["highway"];
+                  (around:%.0f,%.7f,%.7f)
+                  ["highway"]
+                  ["name"];
                 out center tags;
-                """.formatted(
+                """,
                 radius,
                 latitude,
                 longitude
         );
 
-        Map response = restClient.post()
+        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+        form.add("data", query);
+
+        Map<?, ?> response = restClient.post()
                 .uri("https://overpass-api.de/api/interpreter")
-                .body(query)
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body(form)
                 .retrieve()
                 .body(Map.class);
 
-        List<Map<String, Object>> elements =
-                (List<Map<String, Object>>) response.get("elements");
+        if (response == null ||
+                !(response.get("elements") instanceof List<?> elements)) {
+            return List.of();
+        }
 
         List<NearbyStreet> streets = new ArrayList<>();
 
-        for (Map<String, Object> element : elements) {
+        for (Object object : elements) {
 
-            Map<String, Object> tags =
-                    (Map<String, Object>) element.get("tags");
-
-            if (tags == null || !tags.containsKey("name")) {
+            if (!(object instanceof Map<?, ?> element)) {
                 continue;
             }
 
-            Map<String, Object> center =
-                    (Map<String, Object>) element.get("center");
-
-            if (center == null) {
+            if (!(element.get("tags") instanceof Map<?, ?> tags)) {
                 continue;
             }
 
-            String name = tags.get("name").toString();
+            if (!(element.get("center") instanceof Map<?, ?> center)) {
+                continue;
+            }
 
-            double lat =
-                    Double.parseDouble(center.get("lat").toString());
+            Object nameValue = tags.get("name");
+            Object latitudeValue = center.get("lat");
+            Object longitudeValue = center.get("lon");
 
-            double lng =
-                    Double.parseDouble(center.get("lon").toString());
+            if (nameValue == null ||
+                    latitudeValue == null ||
+                    longitudeValue == null) {
+                continue;
+            }
 
             streets.add(
                     new NearbyStreet(
-                            name,
-                            lat,
-                            lng
+                            nameValue.toString(),
+                            Double.parseDouble(latitudeValue.toString()),
+                            Double.parseDouble(longitudeValue.toString())
                     )
             );
         }
 
-        return streets;
+        return streets.stream()
+                .distinct()
+                .limit(100)
+                .toList();
     }
 }

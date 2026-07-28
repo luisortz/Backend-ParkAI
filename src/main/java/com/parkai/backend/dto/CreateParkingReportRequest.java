@@ -13,8 +13,6 @@ public record CreateParkingReportRequest(
         @NotBlank
         String streetName,
 
-        Long userId,
-
         @Min(0)
         @Max(100)
         int occupancyPercent
