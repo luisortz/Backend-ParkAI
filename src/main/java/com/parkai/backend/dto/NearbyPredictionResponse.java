@@ -9,7 +9,9 @@ public record NearbyPredictionResponse(
         // Integer permite devolver null.
         Integer estimatedAvailabilityPercent,
 
-        String level
+        String level,
+        
+        String source
 
 ) {
 }

@@ -4,8 +4,8 @@ import com.parkai.backend.dto.NearbyPredictionResponse;
 import com.parkai.backend.dto.NearbyStreet;
 import com.parkai.backend.dto.PredictionResponse;
 import com.parkai.backend.model.ParkingReport;
+import com.parkai.backend.model.ReportType;
 import com.parkai.backend.repository.ParkingReportRepository;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,17 +22,6 @@ public class ParkingPredictionService {
     private static final Logger LOGGER =
             LoggerFactory.getLogger(ParkingPredictionService.class);
 
-    /*
-     * No se genera una predicción histórica con uno o dos reportes,
-     * porque sería poco confiable.
-     */
-    private static final int MINIMUM_REPORTS_REQUIRED = 3;
-
-    /*
-     * Aproximadamente 300 metros alrededor del punto consultado.
-     */
-    private static final double SEARCH_RADIUS = 0.003;
-
     private final ParkingReportRepository parkingReportRepository;
     private final RestClient restClient;
     private final MapService mapService;
@@ -46,6 +35,7 @@ public class ParkingPredictionService {
             MapService mapService,
             SearchHistoryService searchHistoryService
     ) {
+
         this.parkingReportRepository = parkingReportRepository;
         this.restClient = RestClient.create();
         this.mapService = mapService;
@@ -53,16 +43,21 @@ public class ParkingPredictionService {
     }
 
     public PredictionResponse estimateAvailability(
+
+            String streetName,
+
             double latitude,
+
             double longitude,
+
             int dayOfWeek,
+
             int hour
+
     ) {
+
         validateInput(dayOfWeek, hour);
 
-        /*
-         * Primera opción: usar el modelo real de Python.
-         */
         PredictionResponse modelPrediction =
                 getPythonModelPrediction(
                         latitude,
@@ -75,18 +70,18 @@ public class ParkingPredictionService {
             return modelPrediction;
         }
 
-        /*
-         * Segunda opción: usar reportes reales guardados en MySQL.
-         */
         LocalDateTime now = LocalDateTime.now();
+
+        double radius = 0.005;
 
         List<ParkingReport> history =
                 parkingReportRepository
-                        .findByLatitudeBetweenAndLongitudeBetweenAndReportTimeBetween(
-                                latitude - SEARCH_RADIUS,
-                                latitude + SEARCH_RADIUS,
-                                longitude - SEARCH_RADIUS,
-                                longitude + SEARCH_RADIUS,
+                        .findByStreetNameIgnoreCaseAndLatitudeBetweenAndLongitudeBetweenAndReportTimeBetween(
+                                streetName,
+                                latitude - radius,
+                                latitude + radius,
+                                longitude - radius,
+                                longitude + radius,
                                 now.minusDays(30),
                                 now
                         );
@@ -104,79 +99,14 @@ public class ParkingPredictionService {
                         )
                         .toList();
 
-        /*
-         * No se inventa un resultado cuando faltan reportes.
-         */
-        if (matchingReports.size() < MINIMUM_REPORTS_REQUIRED) {
-            return insufficientDataResponse(
-                    latitude,
-                    longitude,
-                    dayOfWeek,
-                    hour
-            );
-        }
+        if (matchingReports.isEmpty()) {
 
-        double averageOccupancy =
-                matchingReports.stream()
-                        .mapToInt(ParkingReport::getOccupancyPercent)
-                        .average()
-                        .orElseThrow();
-
-        int estimatedAvailability =
-                Math.max(
-                        0,
-                        Math.min(
-                                100,
-                                100 - (int) Math.round(averageOccupancy)
-                        )
-                );
-
-        return new PredictionResponse(
-                latitude,
-                longitude,
-                dayOfWeek,
-                hour,
-                estimatedAvailability,
-                calculateLevel(estimatedAvailability),
-                "historical-reports"
-        );
-    }
-
-    private PredictionResponse getPythonModelPrediction(
-            double latitude,
-            double longitude,
-            int dayOfWeek,
-            int hour
-    ) {
-        if (mlServiceUrl == null || mlServiceUrl.isBlank()) {
-            return null;
-        }
-
-        try {
-            PythonPredictionResponse response =
-                    restClient.post()
-                            .uri(mlServiceUrl)
-                            .body(
-                                    new PythonPredictionRequest(
-                                            latitude,
-                                            longitude,
-                                            dayOfWeek,
-                                            hour
-                                    )
-                            )
-                            .retrieve()
-                            .body(PythonPredictionResponse.class);
-
-            if (response == null) {
-                return null;
-            }
-
-            int availability =
+            int estimatedAvailability =
                     Math.max(
                             0,
-                            Math.min(
-                                    100,
-                                    response.estimatedAvailabilityPercent()
+                            100 - heuristicOccupancy(
+                                    dayOfWeek,
+                                    hour
                             )
                     );
 
@@ -185,128 +115,249 @@ public class ParkingPredictionService {
                     longitude,
                     dayOfWeek,
                     hour,
-                    availability,
-                    calculateLevel(availability),
-                    "python-sklearn-service"
+                    estimatedAvailability,
+                    calculateLevel(estimatedAvailability),
+                    "heuristic"
             );
-
-        } catch (RuntimeException exception) {
-            LOGGER.warn(
-                    "No se pudo consultar el servicio de IA: {}",
-                    exception.getMessage()
-            );
-
-            return null;
         }
-    }
 
-    private PredictionResponse insufficientDataResponse(
-            double latitude,
-            double longitude,
-            int dayOfWeek,
-            int hour
-    ) {
+        long foundCount =
+                matchingReports.stream()
+                        .filter(report ->
+                                report.getReportType()
+                                        == ReportType.FOUND
+                        )
+                        .count();
+
+        int estimatedAvailability =
+                (int) (
+                        foundCount * 100.0
+                                / matchingReports.size()
+                );
+
         return new PredictionResponse(
                 latitude,
                 longitude,
                 dayOfWeek,
                 hour,
-                null,
-                "UNKNOWN",
-                "insufficient-data"
+                estimatedAvailability,
+                calculateLevel(
+                        estimatedAvailability
+                ),
+                "community-reports"
+        );
+    }
+    private PredictionResponse getPythonModelPrediction(
+        double latitude,
+        double longitude,
+        int dayOfWeek,
+        int hour
+) {
+
+    if (mlServiceUrl == null || mlServiceUrl.isBlank()) {
+        return null;
+    }
+
+    try {
+
+        PythonPredictionResponse response =
+                restClient.post()
+                        .uri(mlServiceUrl)
+                        .body(
+                                new PythonPredictionRequest(
+                                        latitude,
+                                        longitude,
+                                        dayOfWeek,
+                                        hour
+                                )
+                        )
+                        .retrieve()
+                        .body(PythonPredictionResponse.class);
+
+        if (response == null) {
+            return null;
+        }
+
+        int availability = Math.max(
+                0,
+                Math.min(
+                        100,
+                        response.estimatedAvailabilityPercent()
+                )
+        );
+
+        return new PredictionResponse(
+                latitude,
+                longitude,
+                dayOfWeek,
+                hour,
+                availability,
+                calculateLevel(availability),
+                "python-sklearn-service"
+        );
+
+    } catch (RuntimeException ex) {
+
+        LOGGER.warn(
+                "Python prediction failed: {}",
+                ex.getMessage()
+        );
+
+        return null;
+    }
+}
+
+private void validateInput(
+        int dayOfWeek,
+        int hour
+) {
+
+    if (dayOfWeek < DayOfWeek.MONDAY.getValue()
+            || dayOfWeek > DayOfWeek.SUNDAY.getValue()) {
+
+        throw new IllegalArgumentException(
+                "dayOfWeek must be between 1 and 7"
         );
     }
 
-    private void validateInput(
-            int dayOfWeek,
-            int hour
-    ) {
-        if (
-                dayOfWeek < DayOfWeek.MONDAY.getValue()
-                        || dayOfWeek > DayOfWeek.SUNDAY.getValue()
-        ) {
-            throw new IllegalArgumentException(
-                    "dayOfWeek must be between 1 and 7"
-            );
-        }
+    if (hour < 0 || hour > 23) {
 
-        if (hour < 0 || hour > 23) {
-            throw new IllegalArgumentException(
-                    "hour must be between 0 and 23"
-            );
-        }
+        throw new IllegalArgumentException(
+                "hour must be between 0 and 23"
+        );
+    }
+}
+
+private int heuristicOccupancy(
+        int dayOfWeek,
+        int hour
+) {
+
+    boolean weekday =
+            dayOfWeek >= 1 && dayOfWeek <= 5;
+
+    boolean peak =
+            (hour >= 8 && hour <= 10)
+                    || (hour >= 17 && hour <= 20);
+
+    if (weekday && peak) {
+        return 85;
     }
 
-    private String calculateLevel(
-            int availabilityPercent
-    ) {
-        if (availabilityPercent <= 30) {
-            return "LOW";
-        }
-
-        if (availabilityPercent <= 60) {
-            return "MEDIUM";
-        }
-
-        return "HIGH";
+    if (weekday) {
+        return 65;
     }
 
-    public List<NearbyPredictionResponse> getNearbyPredictions(
-            Long userId,
-            String placeName,
-            double latitude,
-            double longitude,
-            int dayOfWeek,
-            int hour
-    ) {
-        validateInput(dayOfWeek, hour);
+    return 50;
+}
 
-        if (userId != null) {
-            searchHistoryService.saveSearch(
-                    userId,
-                    placeName,
+private String calculateLevel(
+        int availabilityPercent
+) {
+
+    if (availabilityPercent <= 30) {
+        return "LOW";
+    }
+
+    if (availabilityPercent <= 60) {
+        return "MEDIUM";
+    }
+
+    return "HIGH";
+}
+
+private record PythonPredictionRequest(
+        double latitude,
+        double longitude,
+        int dayOfWeek,
+        int hour
+) {
+}
+
+private record PythonPredictionResponse(
+        int estimatedAvailabilityPercent
+) {
+}
+
+public List<NearbyPredictionResponse> getNearbyPredictions(
+        Long userId,
+        String placeName,
+        double latitude,
+        double longitude,
+        int dayOfWeek,
+        int hour
+) {
+
+    validateInput(dayOfWeek, hour);
+
+    if (userId != null) {
+        searchHistoryService.saveSearch(
+                userId,
+                placeName,
+                latitude,
+                longitude
+        );
+    }
+
+    List<NearbyStreet> streets =
+            mapService.getNearbyStreets(
                     latitude,
                     longitude
             );
-        }
 
-        List<NearbyStreet> streets =
-                mapService.getNearbyStreets(
-                        latitude,
-                        longitude
+    return streets.stream()
+            .sorted((a, b) -> Double.compare(
+                    calculateDistance(
+                            latitude,
+                            longitude,
+                            a.latitude(),
+                            a.longitude()
+                    ),
+                    calculateDistance(
+                            latitude,
+                            longitude,
+                            b.latitude(),
+                            b.longitude()
+                    )
+            ))
+            .limit(20)
+            .map(street -> {
+
+                PredictionResponse prediction =
+                        estimateAvailability(
+                                street.streetName(),
+                                street.latitude(),
+                                street.longitude(),
+                                dayOfWeek,
+                                hour
+                        );
+
+                return new NearbyPredictionResponse(
+                        street.streetName(),
+                        street.latitude(),
+                        street.longitude(),
+                        prediction.estimatedAvailabilityPercent(),
+                        prediction.level(),
+                        prediction.source()
                 );
+            })
+            .distinct()
+            .toList();
+}
 
-        return streets.stream()
-                .map(street -> {
-                    PredictionResponse prediction =
-                            estimateAvailability(
-                                    street.latitude(),
-                                    street.longitude(),
-                                    dayOfWeek,
-                                    hour
-                            );
+private double calculateDistance(
+        double lat1,
+        double lon1,
+        double lat2,
+        double lon2
+) {
 
-                    return new NearbyPredictionResponse(
-                            street.streetName(),
-                            street.latitude(),
-                            street.longitude(),
-                            prediction.estimatedAvailabilityPercent(),
-                            prediction.level()
-                    );
-                })
-                .toList();
-    }
+    double latDistance = lat1 - lat2;
+    double lonDistance = lon1 - lon2;
 
-    private record PythonPredictionRequest(
-            double latitude,
-            double longitude,
-            int dayOfWeek,
-            int hour
-    ) {
-    }
-
-    private record PythonPredictionResponse(
-            int estimatedAvailabilityPercent
-    ) {
-    }
+    return Math.sqrt(
+            latDistance * latDistance +
+            lonDistance * lonDistance
+    );
+}
 }

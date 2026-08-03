@@ -17,10 +17,14 @@ public interface ParkingReportRepository extends JpaRepository<ParkingReport, Lo
             LocalDateTime end
     );
 
-    List<ParkingReport> findByLatitudeBetweenAndLongitudeBetween(
+    List<ParkingReport>
+findByStreetNameIgnoreCaseAndLatitudeBetweenAndLongitudeBetweenAndReportTimeBetween(
+        String streetName,
         double minLat,
         double maxLat,
-        double minLng,
-        double maxLng
+        double minLon,
+        double maxLon,
+        LocalDateTime start,
+        LocalDateTime end
 );
 }
