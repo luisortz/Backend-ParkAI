@@ -28,6 +28,8 @@ public class PredictionController {
     @GetMapping
 public PredictionResponse predict(
 
+        @RequestParam String streetName,
+
         @RequestParam double latitude,
 
         @RequestParam double longitude,
@@ -39,6 +41,7 @@ public PredictionResponse predict(
 ) {
 
     return parkingPredictionService.estimateAvailability(
+            streetName,
             latitude,
             longitude,
             dayOfWeek,

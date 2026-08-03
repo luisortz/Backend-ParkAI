@@ -2,6 +2,7 @@ package com.parkai.backend.service;
 
 import com.parkai.backend.dto.PredictionResponse;
 import com.parkai.backend.model.ParkingReport;
+import com.parkai.backend.model.ReportType;
 import com.parkai.backend.repository.ParkingReportRepository;
 import org.junit.jupiter.api.Test;
 
@@ -40,8 +41,14 @@ void returnsHeuristicPredictionWhenThereIsNoHistory() {
                 mock(SearchHistoryService.class)
         );
 
-    PredictionResponse response =
-            service.estimateAvailability(-34.58, -58.42, 1, 9);
+        PredictionResponse response =
+        service.estimateAvailability(
+                "Avenida Corrientes",
+                -34.58,
+                -58.42,
+                1,
+                9
+        );
 
     assertEquals(15, response.estimatedAvailabilityPercent());
 
@@ -54,7 +61,7 @@ void returnsHeuristicPredictionWhenThereIsNoHistory() {
 
         ParkingReport nonMatching = new ParkingReport();
         nonMatching.setReportTime(LocalDateTime.of(2026, 5, 9, 20, 0));
-        nonMatching.setOccupancyPercent(90);
+        nonMatching.setReportType(ReportType.FOUND);
 
         when(repository.findByLatitudeBetweenAndLongitudeBetweenAndReportTimeBetween(
         any(),
@@ -72,8 +79,14 @@ ParkingPredictionService service =
                 mock(SearchHistoryService.class)
         );
 
-PredictionResponse response =
-        service.estimateAvailability(-34.58, -58.42, 1, 9);
+        PredictionResponse response =
+        service.estimateAvailability(
+                "Avenida Corrientes",
+                -34.58,
+                -58.42,
+                1,
+                9
+        );
 
 assertEquals(15, response.estimatedAvailabilityPercent());
 
@@ -92,7 +105,7 @@ assertEquals("heuristic", response.source());
 
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
-                () -> service.estimateAvailability(-34.58, -58.42, 0, 10)
+                () -> service.estimateAvailability("Avenida Corrientes",-34.58, -58.42, 0, 10)
         );
 
         assertTrue(exception.getMessage().contains("dayOfWeek"));

@@ -10,7 +10,9 @@ public record NearbyPredictionResponse(
 
         int estimatedAvailabilityPercent,
 
-        String level
+        String level,
+        
+        String source
 
 ) {
 }

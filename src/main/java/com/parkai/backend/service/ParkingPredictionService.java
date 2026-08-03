@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import com.parkai.backend.dto.NearbyPredictionResponse;
 import com.parkai.backend.dto.NearbyStreet;
+import com.parkai.backend.model.ReportType;
 
 @Service
 public class ParkingPredictionService {
@@ -39,6 +40,7 @@ public class ParkingPredictionService {
     }
 
     public PredictionResponse estimateAvailability(
+        String streetName,
         double latitude,
         double longitude,
         int dayOfWeek,
@@ -49,43 +51,88 @@ public class ParkingPredictionService {
 
     LocalDateTime now = LocalDateTime.now();
 
-    double radius = 0.01;
+    double radius = 0.005;
 
     List<ParkingReport> history =
-            parkingReportRepository.findByLatitudeBetweenAndLongitudeBetweenAndReportTimeBetween(
-                    latitude - radius,
-                    latitude + radius,
-                    longitude - radius,
-                    longitude + radius,
-                    now.minusDays(30),
-                    now
-            );
+        parkingReportRepository
+                .findByStreetNameIgnoreCaseAndLatitudeBetweenAndLongitudeBetweenAndReportTimeBetween(
+                        streetName,
+                        latitude - radius,
+                        latitude + radius,
+                        longitude - radius,
+                        longitude + radius,
+                        now.minusDays(30),
+                        now
+                );
 
     List<ParkingReport> matchingReports = history.stream()
-            .filter(report -> report.getReportTime().getDayOfWeek().getValue() == dayOfWeek)
-            .filter(report -> report.getReportTime().getHour() == hour)
+            .filter(report ->
+                    report.getReportTime()
+                            .getDayOfWeek()
+                            .getValue() == dayOfWeek
+            )
+            .filter(report ->
+                    report.getReportTime()
+                            .getHour() == hour
+            )
             .toList();
 
-    double averageOccupancy = matchingReports.stream()
-            .mapToInt(ParkingReport::getOccupancyPercent)
-            .average()
-            .orElse(heuristicOccupancy(dayOfWeek, hour));
+    // Si no hay reportes, usamos heurística
+    if (matchingReports.isEmpty()) {
 
-    int estimatedAvailability =
-            Math.max(0, 100 - (int) Math.round(averageOccupancy));
-            String level = calculateLevel(estimatedAvailability);
+        int estimatedAvailability =
+                Math.max(
+                        0,
+                        100 - heuristicOccupancy(
+                                dayOfWeek,
+                                hour
+                        )
+                );
 
-            return new PredictionResponse(
+        String level =
+                calculateLevel(
+                        estimatedAvailability
+                );
+
+        return new PredictionResponse(
                 latitude,
                 longitude,
                 dayOfWeek,
                 hour,
                 estimatedAvailability,
                 level,
-                matchingReports.isEmpty()
-                        ? "heuristic"
-                        : "historical+heuristic"
+                "heuristic"
         );
+    }
+
+    // Cantidad de usuarios que encontraron lugar
+    long foundCount = matchingReports.stream()
+            .filter(report ->
+                    report.getReportType()
+                            == ReportType.FOUND
+            )
+            .count();
+
+    int estimatedAvailability =
+            (int) (
+                    (foundCount * 100.0)
+                            / matchingReports.size()
+            );
+
+    String level =
+            calculateLevel(
+                    estimatedAvailability
+            );
+
+    return new PredictionResponse(
+            latitude,
+            longitude,
+            dayOfWeek,
+            hour,
+            estimatedAvailability,
+            level,
+            "community-reports"
+    );
 }
 
     private PredictionResponse getPythonModelPrediction(double latitude,
@@ -205,26 +252,69 @@ getNearbyPredictions(
                     longitude
             );
 
-    return streets.stream()
-            .map(street -> {
+            return streets.stream()
 
+            .sorted((a, b) -> Double.compare(
+    
+                    calculateDistance(
+                            latitude,
+                            longitude,
+                            a.latitude(),
+                            a.longitude()
+                    ),
+    
+                    calculateDistance(
+                            latitude,
+                            longitude,
+                            b.latitude(),
+                            b.longitude()
+                    )
+            ))
+    
+            .limit(20)
+    
+            .map(street -> {
+    
                 PredictionResponse prediction =
                         estimateAvailability(
+                                street.streetName(),
                                 street.latitude(),
                                 street.longitude(),
                                 dayOfWeek,
                                 hour
                         );
-
+    
                 return new NearbyPredictionResponse(
                         street.streetName(),
                         street.latitude(),
                         street.longitude(),
                         prediction.estimatedAvailabilityPercent(),
-                        prediction.level()
+                        prediction.level(),
+                        prediction.source()
                 );
             })
+    
             .distinct()
+    
             .toList();
-}
+    }
+
+    private double calculateDistance(
+
+        double lat1,
+        double lon1,
+
+        double lat2,
+        double lon2
+    ) {
+
+    double latDistance = lat1 - lat2;
+    double lonDistance = lon1 - lon2;
+
+    return Math.sqrt(
+            latDistance * latDistance
+                    +
+            lonDistance * lonDistance
+    );
+    }
 }

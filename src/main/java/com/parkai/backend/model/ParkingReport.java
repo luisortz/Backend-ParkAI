@@ -30,10 +30,8 @@ public class ParkingReport {
     @Column(nullable = false)
     private LocalDateTime reportTime;
 
-    @Min(0)
-    @Max(100)
-    @Column(nullable = false)
-    private int occupancyPercent;
+    @Enumerated(EnumType.STRING)
+    private ReportType reportType;
 
     public Long getId() {
         return id;
@@ -84,11 +82,11 @@ public class ParkingReport {
         this.reportTime = reportTime;
     }
 
-    public int getOccupancyPercent() {
-        return occupancyPercent;
+    public ReportType getReportType() {
+        return reportType;
     }
 
-    public void setOccupancyPercent(int occupancyPercent) {
-        this.occupancyPercent = occupancyPercent;
+    public void setReportType(ReportType reportType) {
+        this.reportType = reportType;
     }
 }
