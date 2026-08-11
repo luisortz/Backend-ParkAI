@@ -1,18 +1,25 @@
 import pandas as pd
-from scipy.spatial import cKDTree
 import numpy as np
+from scipy.spatial import cKDTree
 
 print("Cargando datasets...")
 
-traffic = pd.read_csv("datasets/dataset_flujo_vehicular.csv")
+# ============================================================
+# FLUJO VEHICULAR
+# ============================================================
+
+traffic = pd.read_csv(
+    "datasets/dataset_flujo_vehicular.csv"
+)
 
 traffic = traffic.dropna(
-    subset=["LATITUD", "LONGITUD"]
+    subset=["LATITUD", "LONGITUD", "CANTIDAD"]
 )
 
 traffic["datetime"] = pd.to_datetime(
     traffic["HORA"],
-    format="%d%b%Y:%H:%M:%S"
+    format="%d%b%Y:%H:%M:%S",
+    errors="coerce"
 )
 
 traffic = traffic.dropna(
@@ -28,19 +35,68 @@ traffic = traffic.rename(columns={
     "CANTIDAD": "vehicle_flow"
 })
 
-# -----------------------
-# Sensores
-# -----------------------
+# ============================================================
+# FEATURES TEMPORALES
+# ============================================================
 
-sensors = pd.read_csv("datasets/sensores.csv")
+# Hora como variable circular
+traffic["hour_sin"] = np.sin(
+    2 * np.pi * traffic["hour"] / 24
+)
+
+traffic["hour_cos"] = np.cos(
+    2 * np.pi * traffic["hour"] / 24
+)
+
+# Día como variable circular
+traffic["weekday_sin"] = np.sin(
+    2 * np.pi * traffic["weekday"] / 7
+)
+
+traffic["weekday_cos"] = np.cos(
+    2 * np.pi * traffic["weekday"] / 7
+)
+
+# Fin de semana
+traffic["is_weekend"] = (
+    traffic["weekday"] >= 5
+).astype(int)
+
+# Hora pico
+traffic["is_peak"] = (
+    traffic["hour"].isin([7, 8, 9, 17, 18, 19, 20])
+).astype(int)
+
+# ============================================================
+# SENSOR
+# ============================================================
+
+sensors = pd.read_csv(
+    "datasets/sensores.csv"
+)
 
 sensors = sensors.dropna(
     subset=["lat", "long"]
 )
 
-# -----------------------
-# Garages
-# -----------------------
+sensor_tree = cKDTree(
+    sensors[["lat", "long"]].values
+)
+
+sensor_distance, _ = sensor_tree.query(
+    traffic[["latitude", "longitude"]].values,
+    k=1
+)
+
+traffic["sensor_distance"] = sensor_distance
+
+traffic["sensor_nearby"] = (
+    traffic["sensor_distance"] < 0.002
+).astype(int)
+
+# ============================================================
+# GARAGES
+# ============================================================
 
 garages = pd.read_csv(
     "datasets/estacionamientos-concesionados-de-movilidad-sustentable.csv"
@@ -50,74 +106,110 @@ garages = garages.dropna(
     subset=["lat", "long"]
 )
 
-print("Datasets cargados")
-
-sensor_tree = cKDTree(
-    sensors[["lat", "long"]].values
-)
-
 garage_tree = cKDTree(
     garages[["lat", "long"]].values
 )
 
-print("Calculando sensores cercanos...")
-
-sensor_distance, sensor_index = sensor_tree.query(
+garage_distance, _ = garage_tree.query(
     traffic[["latitude", "longitude"]].values,
     k=1
 )
 
-print("Calculando garages cercanos...")
-
-garage_distance, garage_index = garage_tree.query(
-    traffic[["latitude", "longitude"]].values,
-    k=1
-)
-
-traffic["sensor_distance"] = sensor_distance
 traffic["garage_distance"] = garage_distance
 
-traffic["sensor_nearby"] = (
-    traffic["sensor_distance"] < 0.002
+# Cantidad de garages cercanos
+garage_counts = garage_tree.query_ball_point(
+    traffic[["latitude", "longitude"]].values,
+    r=0.005
+)
+
+traffic["garages_nearby"] = [
+    len(x) for x in garage_counts
+]
+
+# ============================================================
+# FLUJO VEHICULAR LOCAL
+# ============================================================
+
+# Normalización relativa al flujo promedio
+flow_mean = traffic["vehicle_flow"].mean()
+flow_std = traffic["vehicle_flow"].std()
+
+traffic["vehicle_flow_normalized"] = (
+    (traffic["vehicle_flow"] - flow_mean)
+    / flow_std
+)
+
+# Categoría de flujo
+traffic["high_traffic"] = (
+    traffic["vehicle_flow"]
+    > traffic["vehicle_flow"].quantile(0.75)
 ).astype(int)
 
-print("Generando disponibilidad sintética...")
+# ============================================================
+# DISPONIBILIDAD SINTÉTICA PROVISIONAL
+# ============================================================
+
+print("Generando target provisional...")
 
 def calculate_availability(row):
 
-    availability = 100
+    availability = 100.0
 
-    # flujo vehicular
-    availability -= row["vehicle_flow"] / 120
+    # --------------------------------------------------------
+    # DEMANDA VEHICULAR
+    # --------------------------------------------------------
 
-    # hora pico
+    # Usamos flujo normalizado para evitar que una escala
+    # arbitraria domine completamente el resultado.
+    availability -= row["vehicle_flow_normalized"] * 12
+
+    # --------------------------------------------------------
+    # HORARIOS
+    # --------------------------------------------------------
+
     if 7 <= row["hour"] <= 9:
-        availability -= 12
+        availability -= 10
 
     if 17 <= row["hour"] <= 20:
-        availability -= 18
+        availability -= 15
 
-    # madrugada
-    if row["hour"] <= 5:
+    # --------------------------------------------------------
+    # FINES DE SEMANA
+    # --------------------------------------------------------
+
+    if row["is_weekend"] == 1:
         availability += 8
 
-    # fines de semana
-    if row["weekday"] >= 5:
+    # --------------------------------------------------------
+    # MADRUGADA
+    # --------------------------------------------------------
+
+    if row["hour"] <= 5:
         availability += 10
 
-    # cerca de un sensor
+    # --------------------------------------------------------
+    # SENSORES
+    # --------------------------------------------------------
+
     if row["sensor_nearby"] == 1:
-        availability -= 6
+        availability -= 4
 
-    # cerca de un garage
+    # --------------------------------------------------------
+    # GARAGES
+    # --------------------------------------------------------
+
     if row["garage_distance"] < 0.003:
-        availability += 10
+        availability += 8
 
     elif row["garage_distance"] < 0.008:
-        availability += 5
+        availability += 4
 
-    # ruido aleatorio
-    availability += np.random.normal(0,5)
+    # --------------------------------------------------------
+    # VARIABILIDAD
+    # --------------------------------------------------------
+
+    availability += np.random.normal(0, 3)
 
     return np.clip(
         round(availability),
@@ -125,28 +217,61 @@ def calculate_availability(row):
         100
     )
 
+
 traffic["availability"] = traffic.apply(
     calculate_availability,
     axis=1
 )
 
-dataset = traffic[[
+# ============================================================
+# DATASET FINAL
+# ============================================================
+
+features = [
     "latitude",
     "longitude",
+
     "hour",
     "weekday",
-    "vehicle_flow",
-    "sensor_nearby",
-    "garage_distance",
-    "availability"
-]]
 
-print(dataset.head())
+    "hour_sin",
+    "hour_cos",
+
+    "weekday_sin",
+    "weekday_cos",
+
+    "is_weekend",
+    "is_peak",
+
+    "vehicle_flow",
+    "vehicle_flow_normalized",
+    "high_traffic",
+
+    "sensor_distance",
+    "sensor_nearby",
+
+    "garage_distance",
+    "garages_nearby",
+
+    "availability"
+]
+
+dataset = traffic[features].copy()
 
 dataset.to_csv(
-    "datasets/training_dataset_v2.csv",
+    "datasets/training_dataset_v3.csv",
     index=False
 )
 
-print("\nCantidad registros:", len(dataset))
-print("\nGuardado en datasets/training_dataset_v2.csv")
+print("\nDataset generado:")
+print(dataset.head())
+
+print(
+    "\nCantidad de registros:",
+    len(dataset)
+)
+
+print(
+    "\nGuardado en:",
+    "datasets/training_dataset_v3.csv"
+)
