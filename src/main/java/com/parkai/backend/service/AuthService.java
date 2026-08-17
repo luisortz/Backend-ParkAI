@@ -37,35 +37,39 @@ public class AuthService {
     public UserResponse register(RegisterRequest request) {
 
         User user = new User();
-
+    
         user.setName(request.name());
-
         user.setEmail(request.email());
-
+    
         user.setPassword(
                 passwordEncoder.encode(request.password())
         );
+    
         String code = String.format(
-        "%06d",
-        new Random().nextInt(999999)
+                "%06d",
+                new Random().nextInt(999999)
         );
-
+    
         user.setVerificationCode(code);
-
+    
         user.setVerificationCodeExpiresAt(
                 LocalDateTime.now().plusMinutes(5)
         );
+    
         user.setLastVerificationCodeSentAt(
-        LocalDateTime.now());
-
+                LocalDateTime.now()
+        );
+    
         user.setEnabled(false);
+    
         User savedUser = userRepository.save(user);
-
-        mailService.sendVerificationCode(
-        savedUser.getEmail(),
-        code
-);
-
+    
+        // TEMPORALMENTE DESACTIVADO
+        // mailService.sendVerificationCode(
+        //         savedUser.getEmail(),
+        //         code
+        // );
+    
         return new UserResponse(
                 savedUser.getId(),
                 savedUser.getName(),
@@ -79,32 +83,31 @@ public class AuthService {
                 .findByEmail(request.email())
                 .orElseThrow();
     
+        System.out.println("Código guardado: " + user.getVerificationCode());
+        System.out.println("Código recibido: " + request.code());
+        System.out.println("Expira: " + user.getVerificationCodeExpiresAt());
+        System.out.println("Ahora: " + LocalDateTime.now());
+    
         if (!user.getVerificationCode()
                 .equals(request.code())) {
     
-            throw new RuntimeException(
-                    "Invalid code"
-            );
+            throw new RuntimeException("Invalid code");
         }
     
         if (user.getVerificationCodeExpiresAt()
                 .isBefore(LocalDateTime.now())) {
     
-            throw new RuntimeException(
-                    "Code expired"
-            );
+            throw new RuntimeException("Code expired");
         }
     
         user.setEnabled(true);
-    
         user.setVerificationCode(null);
-    
         user.setVerificationCodeExpiresAt(null);
     
         userRepository.save(user);
     
-        String token =
-        jwtService.generateToken(user.getId());
+        String token = jwtService.generateToken(user.getId());
+    
         return new AuthResponse(token);
     }
 

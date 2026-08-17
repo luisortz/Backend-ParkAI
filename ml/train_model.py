@@ -53,6 +53,7 @@ features = [
     "vehicle_flow",
     "vehicle_flow_normalized",
     "high_traffic",
+    "flow_pressure",
 
     "sensor_distance",
     "sensor_nearby",

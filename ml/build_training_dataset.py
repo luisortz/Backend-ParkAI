@@ -131,13 +131,53 @@ traffic["garages_nearby"] = [
 # FLUJO VEHICULAR LOCAL
 # ============================================================
 
-# Normalización relativa al flujo promedio
+# Flujo promedio general
 flow_mean = traffic["vehicle_flow"].mean()
 flow_std = traffic["vehicle_flow"].std()
 
 traffic["vehicle_flow_normalized"] = (
     (traffic["vehicle_flow"] - flow_mean)
     / flow_std
+)
+
+
+# ============================================================
+# FLUJO PROMEDIO POR UBICACIÓN
+# ============================================================
+
+location_stats = (
+    traffic
+    .groupby(["latitude", "longitude"])["vehicle_flow"]
+    .agg(["mean", "std"])
+    .reset_index()
+)
+
+location_stats = location_stats.rename(columns={
+    "mean": "location_flow_mean",
+    "std": "location_flow_std"
+})
+
+# Unimos las estadísticas con el dataset
+traffic = traffic.merge(
+    location_stats,
+    on=["latitude", "longitude"],
+    how="left"
+)
+
+# Evitamos divisiones problemáticas
+traffic["location_flow_mean"] = (
+    traffic["location_flow_mean"]
+    .replace(0, np.nan)
+    .fillna(flow_mean)
+)
+
+# ============================================================
+# PRESIÓN DE TRÁFICO LOCAL
+# ============================================================
+
+traffic["flow_pressure"] = (
+    traffic["vehicle_flow"]
+    / traffic["location_flow_mean"]
 )
 
 # Categoría de flujo
@@ -147,73 +187,114 @@ traffic["high_traffic"] = (
 ).astype(int)
 
 # ============================================================
-# DISPONIBILIDAD SINTÉTICA PROVISIONAL
+# DISPONIBILIDAD 
 # ============================================================
 
 print("Generando target provisional...")
 
+
 def calculate_availability(row):
 
-    availability = 100.0
+    # ========================================================
+    # BASE
+    # ========================================================
 
-    # --------------------------------------------------------
-    # DEMANDA VEHICULAR
-    # --------------------------------------------------------
+    availability = 85.0
 
-    # Usamos flujo normalizado para evitar que una escala
-    # arbitraria domine completamente el resultado.
-    availability -= row["vehicle_flow_normalized"] * 12
+    # ========================================================
+    # PRESIÓN DE TRÁFICO LOCAL
+    # ========================================================
 
-    # --------------------------------------------------------
-    # HORARIOS
-    # --------------------------------------------------------
+    # Si el flujo actual es mucho mayor al habitual
+    # para esa ubicación, reducimos disponibilidad.
 
+    flow_pressure = row["flow_pressure"]
+
+    if flow_pressure > 1:
+        availability -= (flow_pressure - 1) * 25
+
+    else:
+        availability += (1 - flow_pressure) * 10
+
+    # ========================================================
+    # HORA
+    # ========================================================
+
+    # Mañana
     if 7 <= row["hour"] <= 9:
-        availability -= 10
+        availability -= 12
 
-    if 17 <= row["hour"] <= 20:
-        availability -= 15
+    # Horario normal
+    elif 10 <= row["hour"] <= 16:
+        availability -= 3
 
-    # --------------------------------------------------------
-    # FINES DE SEMANA
-    # --------------------------------------------------------
+    # Tarde/noche - mayor demanda
+    elif 17 <= row["hour"] <= 20:
+        availability -= 18
 
-    if row["is_weekend"] == 1:
-        availability += 8
+    # Noche
+    elif 21 <= row["hour"] <= 23:
+        availability += 3
 
-    # --------------------------------------------------------
-    # MADRUGADA
-    # --------------------------------------------------------
-
-    if row["hour"] <= 5:
+    # Madrugada
+    elif row["hour"] <= 5:
         availability += 10
 
-    # --------------------------------------------------------
-    # SENSORES
-    # --------------------------------------------------------
+    # ========================================================
+    # FIN DE SEMANA
+    # ========================================================
+
+    if row["is_weekend"] == 1:
+        availability += 10
+
+    # ========================================================
+    # GARAGES
+    # ========================================================
+
+    # Garage muy cercano
+    if row["garage_distance"] < 0.003:
+
+        availability += 5
+
+    # Garage relativamente cercano
+    elif row["garage_distance"] < 0.008:
+
+        availability += 2
+
+    # Cantidad de garages
+    if row["garages_nearby"] >= 3:
+
+        availability += 5
+
+    elif row["garages_nearby"] >= 1:
+
+        availability += 2
+
+    # ========================================================
+    # SENSOR
+    # ========================================================
 
     if row["sensor_nearby"] == 1:
-        availability -= 4
 
-    # --------------------------------------------------------
-    # GARAGES
-    # --------------------------------------------------------
+        availability -= 2
 
-    if row["garage_distance"] < 0.003:
-        availability += 8
-
-    elif row["garage_distance"] < 0.008:
-        availability += 4
-
-    # --------------------------------------------------------
+    # ========================================================
     # VARIABILIDAD
-    # --------------------------------------------------------
+    # ========================================================
 
-    availability += np.random.normal(0, 3)
+    # Pequeña variabilidad para evitar que todos los
+    # registros con las mismas condiciones tengan
+    # exactamente el mismo target.
+
+    availability += np.random.normal(0, 2)
+
+    # ========================================================
+    # LIMITES
+    # ========================================================
 
     return np.clip(
         round(availability),
-        0,
+        5,
         100
     )
 
@@ -234,6 +315,7 @@ features = [
     "hour",
     "weekday",
 
+
     "hour_sin",
     "hour_cos",
 
@@ -246,12 +328,14 @@ features = [
     "vehicle_flow",
     "vehicle_flow_normalized",
     "high_traffic",
+    "flow_pressure",
 
     "sensor_distance",
     "sensor_nearby",
 
     "garage_distance",
     "garages_nearby",
+    
 
     "availability"
 ]
@@ -274,4 +358,22 @@ print(
 print(
     "\nGuardado en:",
     "datasets/training_dataset_v3.csv"
+)
+print("\n============================")
+print("DISTRIBUCIÓN AVAILABILITY")
+print("============================")
+
+print(
+    dataset["availability"].describe()
+)
+
+print("\nRangos de disponibilidad:")
+
+print(
+    pd.cut(
+        dataset["availability"],
+        bins=[0, 20, 40, 60, 80, 100]
+    )
+    .value_counts()
+    .sort_index()
 )
