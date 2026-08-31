@@ -35,6 +35,7 @@ public class ParkingPredictionService {
             MapService mapService,
             SearchHistoryService searchHistoryService
     ) {
+        
 
         this.parkingReportRepository = parkingReportRepository;
         this.restClient = RestClient.create();

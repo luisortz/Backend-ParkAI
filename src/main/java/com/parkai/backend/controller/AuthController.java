@@ -8,6 +8,7 @@ import com.parkai.backend.dto.UserResponse;
 import com.parkai.backend.dto.VerifyRequest;
 import com.parkai.backend.model.User;
 import com.parkai.backend.repository.UserRepository;
+import com.parkai.backend.security.AuthenticatedUserProvider;
 import com.parkai.backend.service.AuthService;
 
 import jakarta.validation.Valid;
@@ -19,9 +20,14 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final AuthenticatedUserProvider authenticatedUserProvider;
 
-    public AuthController(AuthService authService) {
+    public AuthController(
+            AuthService authService,
+            AuthenticatedUserProvider authenticatedUserProvider
+    ) {
         this.authService = authService;
+        this.authenticatedUserProvider = authenticatedUserProvider;
     }
 
     @PostMapping("/register")
@@ -30,12 +36,12 @@ public class AuthController {
     ) {
         return authService.register(request);
     }
-    
+
     @PostMapping("/verify")
     public AuthResponse verify(
         @RequestBody VerifyRequest request
     ) {
-    return authService.verify(request);
+        return authService.verify(request);
     }
 
     @PostMapping("/resend-code")
@@ -43,19 +49,21 @@ public class AuthController {
             @RequestBody @Valid
             ResendCodeRequest request
     ) {
-
-        authService.resendVerificationCode(
-                request
-        );
+        authService.resendVerificationCode(request);
     }
 
     @PostMapping("/login")
     public AuthResponse login(
             @RequestBody @Valid LoginRequest request
     ) {
-    return authService.login(request);
+        return authService.login(request);
     }
 
-
-
+    @GetMapping("/me")
+    public UserResponse getCurrentUser(
+            @RequestHeader("Authorization") String authorizationHeader
+    ) {
+        Long userId = authenticatedUserProvider.getUserId(authorizationHeader);
+        return authService.getCurrentUser(userId);
+    }
 }

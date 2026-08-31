@@ -125,12 +125,31 @@ print(
 # ============================================================
 # VEHICLE FLOW
 # ============================================================
+def get_location_flow_mean(latitude, longitude):
+    distance = np.sqrt(
+        (traffic["latitude"].values - latitude) ** 2 +
+        (traffic["longitude"].values - longitude) ** 2
+    )
 
+    nearest_idx = np.argpartition(distance, 5)[:5]
+    nearest_flows = traffic["vehicle_flow"].values[nearest_idx]
+
+    if len(nearest_flows) == 0:
+        return FLOW_MEAN
+
+    mean_flow = nearest_flows.mean()
+
+    if mean_flow == 0 or pd.isna(mean_flow):
+        return FLOW_MEAN
+
+    return mean_flow
 def get_vehicle_flow(
     latitude,
     longitude,
     hour
 ):
+
+
 
     # Primero filtramos por hora
     same_hour = traffic[
@@ -254,6 +273,8 @@ def predict():
         longitude,
         hour
     )
+    location_flow_mean = get_location_flow_mean(latitude, longitude)
+    flow_pressure = vehicle_flow / location_flow_mean
 
     # ========================================================
     # LOCATION
@@ -356,6 +377,8 @@ def predict():
             vehicle_flow_normalized,
 
         "high_traffic": high_traffic,
+
+        "flow_pressure": flow_pressure,
 
         "sensor_distance":
             sensor_distance,
