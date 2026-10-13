@@ -50,21 +50,12 @@ public class FavoriteController {
     }
 
     @GetMapping
-    public List<Favorite> getFavorites(
-
-            @RequestHeader("Authorization")
-            String authorizationHeader
-    ) {
-
-        Long userId =
-                authenticatedUserProvider
-                        .getUserId(
-                                authorizationHeader
-                        );
-
-        return favoriteService
-                .getFavorites(userId);
-    }
+public List<FavoriteResponse> getFavorites(
+        @RequestHeader("Authorization") String authorizationHeader
+) {
+    Long userId = authenticatedUserProvider.getUserId(authorizationHeader);
+    return favoriteService.getUserFavorites(userId);
+}
 
     @DeleteMapping("/{id}")
     public void deleteFavorite(
