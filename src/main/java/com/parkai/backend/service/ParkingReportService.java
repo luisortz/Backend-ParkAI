@@ -1,10 +1,12 @@
 package com.parkai.backend.service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.springframework.stereotype.Service;
 
 import com.parkai.backend.dto.CreateParkingReportRequest;
+import com.parkai.backend.dto.MyReportResponse;
 import com.parkai.backend.model.ParkingReport;
 import com.parkai.backend.model.User;
 import com.parkai.backend.repository.ParkingReportRepository;
@@ -62,5 +64,21 @@ public class ParkingReportService {
         );
 
         return parkingReportRepository.save(report);
+    }
+
+    public List<MyReportResponse> getMyReports(Long userId) {
+        return parkingReportRepository
+                .findByUserIdOrderByReportTimeDesc(userId)
+                .stream()
+                .limit(30)
+                .map(r -> new MyReportResponse(
+                        r.getId(),
+                        r.getStreetName(),
+                        r.getLatitude(),
+                        r.getLongitude(),
+                        r.getReportType().name(),
+                        r.getReportTime()
+                ))
+                .toList();
     }
 }

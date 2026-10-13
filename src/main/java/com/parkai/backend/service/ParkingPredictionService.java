@@ -73,32 +73,28 @@ public class ParkingPredictionService {
 
         LocalDateTime now = LocalDateTime.now();
 
-        double radius = 0.005;
+        double radius = 0.002; 
 
-        List<ParkingReport> history =
-                parkingReportRepository
-                        .findByStreetNameIgnoreCaseAndLatitudeBetweenAndLongitudeBetweenAndReportTimeBetween(
-                                streetName,
-                                latitude - radius,
-                                latitude + radius,
-                                longitude - radius,
-                                longitude + radius,
-                                now.minusDays(30),
-                                now
-                        );
+List<ParkingReport> history =
+        parkingReportRepository
+                .findByLatitudeBetweenAndLongitudeBetweenAndReportTimeBetween(
+                        latitude - radius,
+                        latitude + radius,
+                        longitude - radius,
+                        longitude + radius,
+                        now.minusDays(30),
+                        now
+                );
 
-        List<ParkingReport> matchingReports =
-                history.stream()
-                        .filter(report ->
-                                report.getReportTime()
-                                        .getDayOfWeek()
-                                        .getValue() == dayOfWeek
-                        )
-                        .filter(report ->
-                                report.getReportTime()
-                                        .getHour() == hour
-                        )
-                        .toList();
+List<ParkingReport> matchingReports =
+        history.stream()
+                .filter(report ->
+                        report.getReportTime().getDayOfWeek().getValue() == dayOfWeek
+                )
+                .filter(report ->
+                        Math.abs(report.getReportTime().getHour() - hour) <= 1
+                )
+                .toList();
 
         if (matchingReports.isEmpty()) {
 

@@ -27,4 +27,8 @@ findByStreetNameIgnoreCaseAndLatitudeBetweenAndLongitudeBetweenAndReportTimeBetw
         LocalDateTime start,
         LocalDateTime end
 );
+
+List<ParkingReport> findByUserIdOrderByReportTimeDesc(Long userId);
+
+
 }

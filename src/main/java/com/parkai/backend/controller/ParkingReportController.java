@@ -1,10 +1,14 @@
 package com.parkai.backend.controller;
 
 import com.parkai.backend.dto.CreateParkingReportRequest;
+import com.parkai.backend.dto.MyReportResponse;
 import com.parkai.backend.model.ParkingReport;
 import com.parkai.backend.security.AuthenticatedUserProvider;
 import com.parkai.backend.service.ParkingReportService;
 import jakarta.validation.Valid;
+
+import java.util.List;
+
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -36,4 +40,12 @@ public class ParkingReportController {
                 request
         );
     }
+
+    @GetMapping("/mine")
+public List<MyReportResponse> getMyReports(
+        @RequestHeader("Authorization") String authorizationHeader
+) {
+    Long userId = authenticatedUserProvider.getUserId(authorizationHeader);
+    return parkingReportService.getMyReports(userId);
+}
 }
