@@ -71,10 +71,12 @@ public class AuthService {
         // );
     
         return new UserResponse(
-                savedUser.getId(),
-                savedUser.getName(),
-                savedUser.getEmail()
-        );
+    user.getId(),
+    user.getName(),
+    user.getEmail(),
+    user.getAvatarKey(),
+    user.getProfileImage() != null
+);
     }
 
     public AuthResponse verify(VerifyRequest request) {
@@ -189,11 +191,13 @@ public UserResponse getCurrentUser(Long userId) {
                 .findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
     
-        return new UserResponse(
-                user.getId(),
-                user.getName(),
-                user.getEmail()
-        );
+                return new UserResponse(
+                        user.getId(),
+                        user.getName(),
+                        user.getEmail(),
+                        user.getAvatarKey(),
+                        user.getProfileImage() != null
+                    );
     }
 
 

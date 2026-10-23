@@ -35,6 +35,16 @@ public class User {
 
     private LocalDateTime lastVerificationCodeSentAt;
 
+    @Column(name = "avatar_key", length = 50)
+    private String avatarKey = "default";
+
+    @Lob
+    @Column(name = "profile_image", columnDefinition = "LONGBLOB")
+    private byte[] profileImage;
+
+    @Column(name = "profile_image_content_type", length = 30)
+    private String profileImageContentType;
+
     public Long getId() {
         return id;
     }
@@ -98,6 +108,30 @@ public class User {
     public void setLastVerificationCodeSentAt(LocalDateTime lastVerificationCodeSentAt) {
         this.lastVerificationCodeSentAt =
                 lastVerificationCodeSentAt;
+    }
+
+    public String getAvatarKey() {
+        return avatarKey;
+    }
+    
+    public void setAvatarKey(String avatarKey) {
+        this.avatarKey = avatarKey;
+    }
+    
+    public byte[] getProfileImage() {
+        return profileImage;
+    }
+    
+    public void setProfileImage(byte[] profileImage) {
+        this.profileImage = profileImage;
+    }
+    
+    public String getProfileImageContentType() {
+        return profileImageContentType;
+    }
+    
+    public void setProfileImageContentType(String profileImageContentType) {
+        this.profileImageContentType = profileImageContentType;
     }
 
 
