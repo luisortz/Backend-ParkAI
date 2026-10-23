@@ -1,3 +1,4 @@
+
 package com.parkai.backend.repository;
 
 import com.parkai.backend.model.Favorite;
@@ -17,13 +18,16 @@ public interface FavoriteRepository
     );
 
     boolean existsByUserIdAndStreetName(
-        Long userId,
-        String streetName
-);
+            Long userId,
+            String streetName
+    );
 
-boolean existsByUserIdAndLatitudeAndLongitude(
-        Long userId,
-        Double latitude,
-        Double longitude
-);
+    boolean existsByUserIdAndLatitudeAndLongitude(
+            Long userId,
+            Double latitude,
+            Double longitude
+    );
+
+    // Contar favoritos del usuario
+    long countByUserId(Long userId);
 }

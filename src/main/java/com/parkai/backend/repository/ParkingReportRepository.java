@@ -29,6 +29,7 @@ findByStreetNameIgnoreCaseAndLatitudeBetweenAndLongitudeBetweenAndReportTimeBetw
 );
 
 List<ParkingReport> findByUserIdOrderByReportTimeDesc(Long userId);
+long countByUserId(Long userId);
 
 
 }

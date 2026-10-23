@@ -8,6 +8,8 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import com.parkai.backend.dto.ProfileStatsResponse;
+import com.parkai.backend.service.ProfileStatsService;
 
 import java.io.IOException;
 
@@ -17,14 +19,17 @@ public class ProfileController {
 
     private final UserProfileService profileService;
     private final AuthenticatedUserProvider authenticatedUserProvider;
+    private final ProfileStatsService profileStatsService;
 
     public ProfileController(
-            UserProfileService profileService,
-            AuthenticatedUserProvider authenticatedUserProvider
-    ) {
-        this.profileService = profileService;
-        this.authenticatedUserProvider = authenticatedUserProvider;
-    }
+        UserProfileService profileService,
+        AuthenticatedUserProvider authenticatedUserProvider,
+        ProfileStatsService profileStatsService
+) {
+    this.profileService = profileService;
+    this.authenticatedUserProvider = authenticatedUserProvider;
+    this.profileStatsService = profileStatsService;
+}
 
     @PostMapping(
             value = "/photo",
@@ -78,4 +83,14 @@ public class ProfileController {
     }
 
     public record AvatarRequest(String avatarKey) {}
+
+    @GetMapping("/stats")
+public ProfileStatsResponse getStats(
+        @RequestHeader("Authorization") String authorizationHeader
+) {
+    Long userId = authenticatedUserProvider
+            .getUserId(authorizationHeader);
+
+    return profileStatsService.getStats(userId);
+}
 }
