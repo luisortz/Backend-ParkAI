@@ -35,6 +35,11 @@ public class CabaStreetPoint {
     @Column(name = "neighborhood", length = 120)
     private String neighborhood;
 
+    // Geometría real del tramo, en formato WKT LINESTRING.
+    // Es una columna NUEVA de la misma tabla caba_street_points.
+    @Column(name = "geometry_wkt", columnDefinition = "TEXT")
+    private String geometryWkt;
+
     protected CabaStreetPoint() {
         // Constructor requerido por JPA.
     }
@@ -57,6 +62,10 @@ public class CabaStreetPoint {
 
     public String getRoadType() {
         return roadType;
+    }
+
+    public String getGeometryWkt() {
+        return geometryWkt;
     }
 
     public String getNeighborhood() {
